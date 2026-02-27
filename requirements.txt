@@ -1,0 +1,17 @@
+numpy
+pandas
+scipy
+scikit-learn
+tensorflow
+keras
+statsmodels
+arch
+matplotlib
+seaborn
+mplfinance
+yfinance
+pandas-datareader
+beautifulsoup4
+python-dateutil
+hurst
+fbm
