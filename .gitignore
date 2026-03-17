@@ -1,0 +1,11 @@
+VIX_MMAR_attempt.csv
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+
+# OS files
+.DS_Store
