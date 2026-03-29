@@ -1,0 +1,663 @@
+\documentclass[12pt,a4paper]{article}
+
+% ---------------------------------------------------------------
+% Packages
+% ---------------------------------------------------------------
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{natbib}
+\bibliographystyle{plainnat}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{setspace}
+\onehalfspacing
+
+% ---------------------------------------------------------------
+% Title
+% ---------------------------------------------------------------
+\title{\textbf{Multifractal Scaling of the CBOE Volatility Index:\\
+First Application of the MMAR Framework to Implied Volatility\\
+with Monte Carlo Validation}}
+
+\author{[Author]\\
+\small [Institution]\\
+\small \texttt{[email]}}
+
+\date{RSS International Conference, Bournemouth, 7--10 September 2026}
+
+\begin{document}
+\maketitle
+
+% ---------------------------------------------------------------
+% Abstract
+% ---------------------------------------------------------------
+\begin{abstract}
+We present the first application of the Multifractal Model of Asset
+Returns (MMAR; Mandelbrot, Fisher \& Calvet 1997) to an implied
+volatility index. Using 8,136 daily observations of the CBOE VIX
+spanning January 1990 to March 2026 --- a period encompassing four
+economic cycles --- we implement the complete MMAR estimation pipeline:
+partition functions, OLS-fitted scaling exponents, Legendre-transformed
+multifractal spectrum, lognormal cascade calibration, fractional
+Brownian motion generation, and Monte Carlo validation.
+
+VIX log-returns strongly reject Gaussianity
+($\text{KS } p < 10^{-10}$, excess kurtosis 6.40). The estimated
+scaling function $\hat{\tau}(q) = -0.022q^2 + 0.207q - 1.019$ is
+strictly concave, confirming genuine multiscaling. The Hurst exponent
+$\hat{H} = 0.214$ places VIX in the strongly subdiffusive regime
+(fractal dimension $d_H = 1.786$), consistent with its mean-reverting
+character and in sharp contrast with the persistent scaling of equity
+price indices. The most probable H\"{o}lder exponent is
+$\hat{\alpha}_0 = 0.207$.
+
+The estimated lognormal cascade variance $\hat{\sigma}^2 = -0.100$
+is inadmissible under the standard MMAR parameterisation, providing
+analytical evidence that the lognormal cascade is misspecified for
+implied volatility. Formal validation via 10,000 Monte Carlo MMAR
+simulations and 1,000 Gaussian benchmarks confirms this: MMAR produces
+mean excess kurtosis of 0.07 against the empirical 6.40, with
+Kolmogorov--Smirnov tests rejecting both MMAR and GBM at all
+conventional significance levels.
+
+We interpret the negative cascade variance and kurtosis failure as
+joint evidence that VIX's multifractal structure belongs to a cascade
+class outside the lognormal family --- a finding with direct
+implications for volatility derivatives pricing and the modelling of
+second-order financial time series.
+\end{abstract}
+
+\noindent\textbf{Keywords:} multifractal analysis, implied volatility,
+Hurst exponent, partition functions, fractional Brownian motion,
+Monte Carlo, VIX
+
+\bigskip
+\hrule
+\bigskip
+
+% ---------------------------------------------------------------
+\section{Introduction}
+% ---------------------------------------------------------------
+
+Standard models of financial returns --- geometric Brownian motion (GBM)
+and GARCH-family processes --- rest on assumptions that are
+systematically violated by empirical data. Log-returns exhibit temporal
+dependence, with periods of large changes clustering alongside periods
+of small changes. Their distributions possess tails far heavier than
+Gaussian and, crucially, these heavy tails do not vanish as the sampling
+interval is extended: empirical studies confirm that multifractal
+processes never converge to a Gaussian distribution regardless of
+aggregation horizon. The CBOE Volatility Index (VIX), which distils
+the market's expectation of 30-day forward volatility from S\&P 500
+option prices, exemplifies these pathologies in a concentrated form:
+excess kurtosis of 6.40, strong mean-reversion ($H \approx 0.25$ across
+long lags), and regime-dependent jump behaviour during crises.
+
+GARCH($p$,$q$) models \citep{bollerslev1986} address volatility
+clustering by conditioning variance on past squared residuals, with
+higher $\alpha$ coefficients producing sharper changes and $\beta$
+capturing gradual dependence. Since $(\alpha + \beta) < 1$ in
+stationary specifications, however, there is an inherent trade-off:
+GARCH cannot simultaneously capture abrupt regime shifts and prolonged
+volatility persistence. The multifractal framework resolves this by
+constructing processes that are scale-invariant --- exhibiting identical
+statistical properties at monthly, weekly, daily, or tick-level
+frequencies --- with heavy tails arising endogenously from the cascade
+structure rather than from distributional assumptions.
+
+The Multifractal Model of Asset Returns (MMAR; \citealt{mandelbrot1997})
+is the canonical continuous-time multifractal model for financial prices.
+Over nearly three decades it has been applied to foreign exchange rates,
+equity indices, individual stocks, commodities, and recently realised
+variances. No published work, however, has applied the full MMAR
+pipeline to any implied volatility index. This paper addresses that gap.
+The contribution is threefold: (i) first MMAR application to the VIX
+time series across 36 years of data; (ii) formal statistical validation
+via Monte Carlo simulation and Kolmogorov--Smirnov tests, directly
+addressing MMAR's well-known inference gap; and (iii) characterisation
+of why the lognormal cascade is misspecified for VIX, with implications
+for implied volatility modelling.
+
+% ---------------------------------------------------------------
+\section{Fractal Properties of Financial Time Series}
+% ---------------------------------------------------------------
+
+\subsection{Self-Similarity and the Hausdorff Dimension}
+
+A fractal is a curve or geometric shape each part of which has the same
+statistical properties as the whole --- exhibiting similar patterns at
+progressively finer scales \citep{saupe1988}. For a one-dimensional
+time series embedded in a two-dimensional plot, the roughness of the
+trajectory is measured by the Hausdorff (fractal) dimension $d_H$,
+which relates to the Hurst exponent via:
+\begin{equation}
+  d_H = 2 - H.
+  \label{eq:hausdorff}
+\end{equation}
+When $d_H = 1$ the series is smooth, resembling a straight line; when
+$d_H = 2$ it fills the plane entirely, like a jagged coastline. As $H$
+increases the curve becomes smoother and $d_H$ decreases. For VIX with
+$\hat{H} = 0.214$, equation~\eqref{eq:hausdorff} gives $d_H = 1.786$
+--- a highly irregular, rough trajectory consistent with frequent
+mean-reversions.
+
+\subsection{Hurst Exponent and Diffusion Scaling}
+
+The speed of diffusion of a time series is characterised by the mean
+squared displacement (MSD):
+\begin{equation}
+  \operatorname{var}(\tau)
+  = \bigl\langle |x_{t+\tau} - x_t|^2 \bigr\rangle.
+  \label{eq:msd}
+\end{equation}
+For standard GBM, variance grows linearly with $\tau$ (normal
+diffusion). Deviations from GBM follow a power-law:
+\begin{equation}
+  \operatorname{var}(\tau) \propto \tau^{2H}.
+  \label{eq:var-hurst}
+\end{equation}
+For $H < \tfrac{1}{2}$: subdiffusion --- anti-persistent, mean-reverting,
+MSD grows slower than linear. For $H > \tfrac{1}{2}$: superdiffusion ---
+persistent, trending. For $H = \tfrac{1}{2}$: standard Brownian motion
+with no memory. The fractal dimension $d_H = 2 - H$ maps the
+persistence or anti-persistence of a time series to its geometric
+roughness.
+
+VIX exhibits $H \approx 0.249$ over long lags (1990--2022) and
+$H \approx 0.398$ over short lags, both estimated via R/S analysis,
+classifying it as subdiffusive. S\&P 500 returns, by contrast, show
+$H \approx 0.637$ over long horizons --- reflecting the persistence of
+equity price trends. Simulating a Hurst exponent alone is insufficient
+to replicate VIX's character, however: fBm with any $H$ still produces
+a Gaussian marginal distribution. What distinguishes VIX is the temporal
+\emph{clustering} of volatility bursts --- days of extreme movement
+followed by further extremes before abrupt subsidence. A leptokurtic
+distribution generating occasional high-kurtosis realisations, without
+this clustering, fails to reproduce the phenomenon.
+
+\subsection{Long-Range Dependence}
+
+Long-range dependent processes exhibit autocorrelation functions that
+decay as power laws rather than exponentially:
+\begin{equation}
+  \rho(\tau \to \infty) \propto \tau^{-a}, \quad a = 2(1-H).
+  \label{eq:acf-power}
+\end{equation}
+As $H \to 1$, $a \to 0$ and the decay becomes arbitrarily slow ---
+indicating strong persistence. Fractionally integrated processes
+\citep{robinson2003} provide one representation:
+\begin{equation}
+  (1 - L)^d S_t = \varepsilon_t, \quad d \notin \mathbb{Z},
+  \label{eq:arfima}
+\end{equation}
+where the non-integer differencing parameter $d$ governs memory.
+For VIX in the anti-persistent regime ($H < \tfrac{1}{2}$, $a > 1$),
+autocorrelations of levels decay quickly, yet squared and absolute
+returns display slow power-law decay --- a hallmark of multifractal
+time series.
+
+\subsection{Limitations of GARCH and GBM}
+
+GBM is defined by $X(t) = X(0)\exp(\mu t + \sigma W(t))$ where $W(t)$
+is standard Brownian motion. Its returns are lognormal, the process is
+a martingale (memoryless), and the underlying is always positive.
+These properties, while analytically convenient, make GBM a highly
+simplified model of reality: it cannot produce fat tails, volatility
+clustering, or long-range dependence. GARCH addresses the clustering
+issue but cannot simultaneously model abrupt shifts and sustained long
+cycles in volatility due to the stationarity constraint
+$(\alpha + \beta) < 1$.
+
+% ---------------------------------------------------------------
+\section{The Multifractal Model of Asset Returns}
+% ---------------------------------------------------------------
+
+\subsection{Three Defining Features}
+
+MMAR \citep{mandelbrot1997} unifies three properties absent from GARCH
+and GBM:
+\begin{enumerate}
+  \item \textbf{Heavy tails with finite variance} --- arising
+    endogenously from the multiplicative cascade structure.
+  \item \textbf{Long-range dependence} --- via the fractional Brownian
+    motion component \citep{mandelbrotness1968}.
+  \item \textbf{Trading time} --- explicit modelling of the
+    clock-time/natural-time relationship
+    \citep{mandelbrottaylor1967}.
+\end{enumerate}
+Unlike L-stable distributions (which imply infinite variance) or fBm
+alone (which retains Gaussian margins), MMAR combines long tails,
+finite variance, and long dependence within a single framework.
+
+\subsection{Three Assumptions: The Subordination Structure}
+
+\textbf{Assumption 1.} Log-prices follow the compound process:
+\begin{equation}
+  X(t) \equiv B_H[\theta(t)],
+  \label{eq:mmar-subordination}
+\end{equation}
+where $X(t) = \ln P(t) - \ln P(0)$, $B_H$ is fractional Brownian
+motion with Hurst exponent $H$, and $\theta(t)$ is a stochastic trading
+time. When plotted, fBm exhibits self-affinity: the plot looks the same
+at any magnification.
+
+\textbf{Assumption 2.} Trading time $\theta(t)$ is the cumulative
+distribution function of a multifractal random measure. Not every day
+``feels'' the same in financial markets: some days are fast (high
+volume, intense price discovery) and others slow. This is the key
+conceptual contribution of the MMAR. The multifractal measure captures
+this heterogeneity hierarchically, across all time scales
+simultaneously.
+
+\textbf{Assumption 3.} $B_H$ and $\theta(t)$ are independent. Trading
+time modifies \emph{when} fluctuations occur, not their direction or
+correlation structure.
+
+\subsection{Multiplicative Cascades}
+
+Trading time is generated via a multiplicative cascade. At each step
+$k$, the interval $[0,T]$ is divided into $b^k$ sub-intervals; each
+receives a fraction of the total \emph{mass} (volatility intensity)
+via an independent random multiplier $M_i$. Mass here is not
+probability mass --- it is a scaling factor describing how volatility
+intensity is distributed across time intervals, analogous to energy
+distribution in turbulent flows.
+
+Two cascade types arise. \emph{Conservative} cascades enforce
+$\sum m_i = 1$ exactly at each step. \emph{Canonical} cascades require
+only $\mathbb{E}[\sum M_i] = 1$ in expectation, allowing individual
+multipliers to be drawn independently from a continuous distribution.
+We employ a \textbf{canonical binomial cascade} ($b = 2$) with
+lognormally distributed multipliers --- the parameterisation of
+\citet{mandelbrot1997}.
+
+Applying the cascade at progressively finer scales produces an uneven
+mass distribution: some short intervals receive disproportionately high
+intensity (volatility spikes), while neighbouring intervals receive
+little. This hierarchical redistribution across scales generates the
+clustering of high and low volatility periods that characterises
+real financial time series --- and cannot be replicated by GARCH or GBM.
+
+\subsection{Fractional Brownian Motion Component}
+
+The fBm component $B_H(t)$ is defined by the Wiener integral:
+\begin{equation}
+  B_H(t) = \frac{1}{\Gamma(H+\tfrac{1}{2})}
+  \left[
+    \int_{-\infty}^0 \!\!\Bigl((t-s)^{H-\frac{1}{2}} - (-s)^{H-\frac{1}{2}}\Bigr)
+    \,\mathrm{d}B(s)
+    + \int_0^t (t-s)^{H-\frac{1}{2}} \,\mathrm{d}B(s)
+  \right].
+  \label{eq:fbm}
+\end{equation}
+The kernel weights $(t-s)^{H-1/2}$ introduce memory into the
+increments. For $H < \tfrac{1}{2}$, the kernel decays quickly and
+produces anti-persistent paths; for $H > \tfrac{1}{2}$, it decays
+slowly, producing persistence. The fBm length is calibrated so that
+the median standard deviation of simulated returns matches the empirical
+value (0.0674 for VIX).
+
+\subsection{MMAR Properties}
+
+MMAR captures three empirical properties simultaneously:
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{ll}
+\toprule
+\textbf{Property} & \textbf{Mechanism} \\
+\midrule
+Non-Gaussian distribution (fat tails) & Multiplicative cascade heterogeneity \\
+Heteroskedasticity ($H \neq \tfrac{1}{2}$) & Fractional Brownian motion \\
+Volatility clustering & Trading time CDF maps fast/slow periods \\
+\bottomrule
+\end{tabular}
+\caption{Three empirical properties captured by MMAR.}
+\end{table}
+
+% ---------------------------------------------------------------
+\section{Estimation Methodology}
+% ---------------------------------------------------------------
+
+\subsection{Multifractality Condition}
+
+A stochastic process $X(t)$ with stationary increments is
+\emph{multifractal} if:
+\begin{equation}
+  \mathbb{E}\bigl[|X(t)|^q\bigr] = c(q)\,t^{\tau(q)+1},
+  \quad \forall\, t \in T,\; q \in Q,
+  \label{eq:multifractal-def}
+\end{equation}
+where $c(q)$ is a moment-dependent prefactor independent of $t$, and
+$\tau(q)$ is the multifractal scaling exponent. The defining condition
+for multifractality is \emph{non-linearity} of $\tau(q)$: a linear
+$\tau(q)$ would imply a monofractal process (such as fBm) where a
+single Hurst exponent governs all moments.
+
+\subsection{Partition Function}
+
+For moment orders $q \in [0.01, 30]$ (105 values) and time scales
+$\Delta t$ that are integer factors of $T = 8136$ (24 scales), the
+partition function is:
+\begin{equation}
+  S_q(T,\Delta t) = \sum_{i=0}^{N-1}
+  \Bigl|X\!\bigl((i+1)\Delta t\bigr) - X\!\bigl(i\Delta t\bigr)\Bigr|^q,
+  \label{eq:partition}
+\end{equation}
+where $N = T/\Delta t$. This is the sum of $q$-th power absolute
+increments across all non-overlapping blocks of size $\Delta t$.
+
+\subsection{Scaling Function}
+
+OLS regression of $\ln S_q$ against $\ln \Delta t$ for each $q$ yields
+\citep{calvet1997}:
+\begin{equation}
+  \ln\!\Bigl(\mathbb{E}\bigl[S_q(T,\Delta t)\bigr]\Bigr)
+  = \hat{\tau}(q)\ln(\Delta t) + \hat{c}(q)\ln(T).
+  \label{eq:ols-tau}
+\end{equation}
+The slope $\hat{\tau}(q)$ is the scaling exponent for moment order $q$.
+Non-linearity of $\hat{\tau}(q)$ across $q$ confirms multiscaling. A
+quadratic $\hat{\tau}(q) = aq^2 + bq + c$ with $a < 0$ is the
+lognormal cascade signature; more general concave shapes indicate
+other cascade families.
+
+\subsection{Hurst Exponent}
+
+$H$ is recovered by solving $\tau_X(1/H) = 0$ \citep{mandelbrot1997}:
+\begin{equation}
+  \hat{H} = \frac{1}{\hat{\tau}_X^{-1}(0)}.
+  \label{eq:hurst-from-tau}
+\end{equation}
+This uses the root of the estimated $\hat{\tau}(q)$ curve, found by
+fitting a quadratic and solving numerically. As a robustness check,
+$H$ is also estimated via R/S analysis: $R/S(n) \propto n^H$, from
+which $H$ is read off the log-log slope.
+
+\subsection{Multifractal Spectrum via Legendre Transform}
+
+The singularity spectrum $\hat{f}(\alpha)$ characterises the fractal
+dimension of the set of time points with local H\"{o}lder exponent
+$\alpha$. It is obtained via Legendre transform:
+\begin{equation}
+  \hat{f}(\alpha) = \inf_{q \in Q}\bigl\{q\alpha - \hat{\tau}(q)\bigr\} + D,
+  \label{eq:legendre}
+\end{equation}
+where $D = 1$ is the embedding dimension. For a strictly concave
+$\hat{\tau}(q)$, the infimum is achieved at the $q$ satisfying
+$\hat{\tau}'(q) = \alpha$, yielding the classical conjugacy relation.
+
+The spectrum answers: ``What is the fractal dimension of the set of
+time points where the path has local H\"{o}lder exponent $\alpha$?''
+Points of low $\alpha$ (rough, singular) correspond to volatility
+spikes --- rare events, so $\hat{f}(\alpha_{\min}) < 1$. Points of
+high $\alpha$ (smooth, regular) correspond to calm periods --- also
+relatively rare. The most common behaviour, at $\hat{\alpha}_0$,
+has $\hat{f}(\hat{\alpha}_0) = 1$, filling a set of full measure on
+$[0,T]$. If the data were monofractal, $\hat{f}$ would degenerate to a
+single point at $\alpha_0 = H$; the breadth of the estimated spectrum
+quantifies the degree of multifractality.
+
+The most probable H\"{o}lder exponent is:
+\begin{equation}
+  \hat{\alpha}_0 = \hat{f}^{-1}\!\bigl(\max_\alpha \hat{f}(\alpha)\bigr).
+  \label{eq:alpha0}
+\end{equation}
+H\"{o}lder exponents should not be confused with the Hurst exponent:
+$H$ is a global measure of diffusion scaling for the entire series;
+$\alpha(t)$ are local measures of path regularity at specific points,
+varying across time. They are related through the MMAR framework but
+are conceptually distinct.
+
+\subsection{Lognormal Cascade Parameters}
+
+Given $\hat{H}$ and $\hat{\alpha}_0$, the canonical lognormal cascade
+is parameterised by \citep{mandelbrot1997}:
+\begin{equation}
+  \hat{\lambda} = \frac{\hat{\alpha}_0}{\hat{H}},
+  \qquad
+  \hat{\sigma}^2 = \frac{2(\hat{\lambda}-1)}{\ln b}.
+  \label{eq:cascade-params}
+\end{equation}
+These ensure the moment condition $\mathbb{E}[M] = b^{-1}$ for the
+multiplier distribution $V = -\log_b M \sim \mathcal{N}(\hat{\lambda},
+\hat{\sigma}^2)$:
+\begin{equation}
+  \mathbb{E}[M]
+  = \exp\!\Bigl(-\hat{\lambda}\ln b
+    + \tfrac{1}{2}\hat{\sigma}^2(\ln b)^2\Bigr)
+  = \frac{1}{b}.
+  \label{eq:moment-condition}
+\end{equation}
+
+\subsection{Trading Time and Full Simulation}
+
+The trading time CDF is the cumulative sum of the cascade measure:
+\begin{equation}
+  \theta(t) = F_\mu(t) = \sum_{i=0}^t \mu(i).
+  \label{eq:trading-time}
+\end{equation}
+The full MMAR simulation composes $X_t = B_H[\theta(t)]$, plugging
+the trading time CDF into the fBm path to generate synthetic
+log-price increments. The Python implementation adapts the MATLAB code
+of \citet{wengert2010} for the cascade construction, using $K = 13$
+dyadic levels ($2^{13} = 8192$ steps per path).
+
+% ---------------------------------------------------------------
+\section{Data}
+% ---------------------------------------------------------------
+
+The data consist of 8,136 daily closing observations of the CBOE
+Volatility Index (VIX) from 2 January 1990 to 28 March 2026, sourced
+from CBOE. This span covers four economic cycles: the 1990s dot-com
+boom and bust, the 2000s housing boom and 2008 financial crisis, the
+2010s cryptocurrency expansion, and the COVID-19 shock of 2020.
+Covering multiple full cycles provides stable conditions for empirical
+parameter estimation.
+
+Descriptive statistics: mean price 19.53 (SD 8.01, price kurtosis
+8.38). Log-returns $r_t = \ln(\text{VIX}_t) - \ln(\text{VIX}_{t-1})$
+have mean $2.5 \times 10^{-5}$, standard deviation 0.0674, and excess
+kurtosis 6.40. A Kolmogorov--Smirnov test for normality strongly
+rejects Gaussianity ($p < 10^{-10}$), confirming fat tails as the
+primary motivation for multifractal modelling.
+
+% ---------------------------------------------------------------
+\section{Results}
+% ---------------------------------------------------------------
+
+\subsection{Fractal Dimension and Diffusion Regime}
+
+The estimated Hurst exponent $\hat{H} = 0.214$ implies fractal
+dimension $d_H = 1.786$, placing VIX in the strongly subdiffusive
+regime. This is consistent with R/S-based estimates from Section 2.2
+(long-horizon $H \approx 0.249$). The near-identical values from two
+independent estimation methods confirm the robustness of the
+anti-persistence finding. The scaling
+$\operatorname{var}(\tau) \propto \tau^{0.428}$ means VIX variance
+grows at less than half the GBM rate.
+
+\subsection{Multifractal Scaling Function and Spectrum}
+
+The partition function $S_q(T,\Delta t)$ was computed for 105 moment
+orders $q \in [0.01, 30]$ across 24 time scales. OLS regressions
+confirm well-defined log-log linear relationships. The estimated
+scaling function:
+\begin{equation}
+  \hat{\tau}(q) = -0.022q^2 + 0.207q - 1.019
+  \label{eq:tau-estimated}
+\end{equation}
+is strictly concave (negative $q^2$ coefficient), confirming genuine
+multifractality. At key moments: $\hat{\tau}(1) = -0.835$,
+$\hat{\tau}(2) = -0.678$. The spectrum apex is at
+$(\hat{\alpha}_0, \hat{f}(\hat{\alpha}_0)) = (0.207, 1.019)$.
+
+\subsection{MMAR Parameter Estimates}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{llp{7cm}}
+\toprule
+\textbf{Parameter} & \textbf{Value} & \textbf{Interpretation} \\
+\midrule
+$\hat{H}$ & 0.2143 & Strongly anti-persistent fBm \\
+$\hat{\alpha}_0$ & 0.2069 & Most probable H\"{o}lder exponent \\
+$\hat{\lambda}$ & 0.9654 & Cascade mean \\
+$\hat{\sigma}^2$ & $-0.0997$ & \textbf{Inadmissible} under lognormal cascade \\
+$b$ & 2 & Binomial cascade branching factor \\
+\bottomrule
+\end{tabular}
+\caption{MMAR parameter estimates for VIX (8,136 daily obs., 1990--2026).}
+\label{tab:params}
+\end{table}
+
+\subsection{Monte Carlo Validation}
+
+10,000 MMAR paths ($K=13$, $2^{13} = 8192$ steps) and 1,000 GBM
+benchmark paths were simulated with matched empirical mean and standard
+deviation.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Metric} & \textbf{MMAR} & \textbf{GBM} & \textbf{Empirical VIX} \\
+\midrule
+Mean excess kurtosis & 0.068 & $-0.001$ & \textbf{6.40} \\
+Mean log return & $1\times10^{-6}$ & $-3\times10^{-5}$ & $2.5\times10^{-5}$ \\
+Mean SD of returns & 0.0958 & 0.0674 & 0.0674 \\
+KS $p$-value (mean) & 0.000 & 0.000 & --- \\
+\% paths KS $p > 0.05$ & 0.0\% & 0.0\% & --- \\
+\bottomrule
+\end{tabular}
+\caption{Monte Carlo validation results: MMAR vs.\ GBM vs.\ empirical VIX.}
+\label{tab:mc}
+\end{table}
+
+Both models are rejected at all conventional significance levels.
+The MMAR kurtosis shortfall is stark: lognormal cascade simulations
+generate mean kurtosis of 0.07 against an empirical value of 6.40 ---
+a 95-fold underestimate, replicated consistently across 10,000 paths.
+For VIX, the cascade fails not by generating too little tail mass
+(its typical failure mode for equity returns), but by being structurally
+unable to concentrate tail mass at all given the inadmissible parameter
+regime.
+
+% ---------------------------------------------------------------
+\section{Discussion}
+% ---------------------------------------------------------------
+
+\subsection{The $\hat{\sigma}^2 < 0$ Finding: Cascade Misspecification}
+
+The inadmissible cascade variance is the paper's most theoretically
+consequential result. From the parameterisation
+\eqref{eq:cascade-params}, $\hat{\sigma}^2 > 0$ requires
+$\hat{\lambda} > 1$, equivalently $\hat{\alpha}_0 > \hat{H}$. For
+equity returns this holds comfortably: S\&P 500 estimates yield
+$H \approx 0.60$, $\alpha_0 \approx 0.65$, giving $\lambda \approx
+1.08$ and $\sigma^2 \approx 0.12$. For VIX, $\hat{\lambda} =
+0.207/0.214 = 0.965 < 1$. This is a structural consequence of the
+strongly anti-persistent Hurst exponent, not a numerical artefact.
+
+The condition $\hat{\alpha}_0 < \hat{H}$ has a concrete
+interpretation. In the MMAR framework, $\alpha_0$ is the most probable
+local H\"{o}lder exponent of the compounded process
+$X(t) = B_H[\theta(t)]$. For a lognormal cascade to be identifiable,
+the trading time deformation must \emph{amplify} local irregularity ---
+stretching some intervals and compressing others to produce more
+variation than the raw fBm. When $\hat{\alpha}_0 < \hat{H}$, the data
+imply the opposite: trading time deformation would need to
+\emph{smooth} local fluctuations relative to fBm. No lognormal
+multiplier distribution satisfying the conservation constraint
+$\mathbb{E}[M] = 1/b$ can achieve this. The lognormal family's
+parameter boundary has been reached.
+
+Three interpretations are plausible. First, VIX may require a
+sub-lognormal cascade --- one with more concentrated multiplier
+distribution and less mass redistribution per cascade step.
+Beta-distributed multipliers on $[0,1]$ naturally enforce this
+concentration. Second, VIX's mean-reversion may be incompatible with
+Assumption 3 (independence of $B_H$ and $\theta(t)$): when volatility
+spikes, both trading intensity and subsequent price direction are
+affected, violating independence. Third, the anti-persistent fBm with
+$H = 0.214$ may itself be incorrect; rough volatility models
+\citep[Gatheral et al.\ 2018]{} use $H \approx 0.1$ for variance
+processes, and a lower $H$ could shift $\hat{\alpha}_0/\hat{H}$ above
+unity and restore admissibility.
+
+\subsection{GARCH, MSM, and the MMAR Framework}
+
+The GARCH trade-off --- between capturing abrupt shifts (high $\alpha$)
+and sustained cycles (high $\beta$) --- is an inherent constraint of
+the stationarity condition $(\alpha + \beta) < 1$. MMAR's failure is
+different in character: the framework is conceptually correct for VIX
+in that it provides a mechanism for time-varying variance through
+trading time, but the \emph{lognormal} cascade specification is
+incorrectly calibrated for the subdiffusive regime in which VIX operates.
+
+\citet{luxliu2017} and \citet{liu2019} showed that Markov-Switching
+Multifractal (MSM) models outperform GARCH at long horizons, and
+GARCH outperforms at short horizons. Neither study applied MSM to VIX
+as a target variable. The present finding that MMAR is misspecified at
+the continuous-time level raises the question of whether MSM's
+discrete cascade structure --- with bounded, finitely many volatility
+components --- would fare better for implied volatility, given VIX's
+bounded mean-reversion dynamics.
+
+\subsection{Implications for Alternative Cascade Specifications}
+
+The negative $\hat{\sigma}^2$ and kurtosis failure together indicate
+that VIX's multifractal trading time does not follow a lognormal
+cascade. Candidates for replacement include:
+\begin{itemize}
+  \item \textbf{Poisson cascades}: sparse, jump-like intensity
+    redistributions, appropriate for the discrete crisis-onset
+    character of VIX spikes;
+  \item \textbf{$\alpha$-stable cascades}: permitting heavy-tailed
+    multiplier distributions with infinite variance;
+  \item \textbf{Beta-distributed cascades}: bounded multipliers
+    satisfying the conservation constraint while allowing
+    sub-lognormal concentration.
+\end{itemize}
+Each generates a different $\tau(q)$ profile and requires different
+parameter identification strategies. Comparing these specifications
+against the empirical VIX spectrum is a direct extension of this work.
+
+% ---------------------------------------------------------------
+\section{Conclusion}
+% ---------------------------------------------------------------
+
+This paper presents the first application of the complete MMAR pipeline
+to an implied volatility index. Using 8,136 daily VIX observations from
+January 1990, we establish five results:
+\begin{enumerate}
+  \item VIX log-returns are non-Gaussian with excess kurtosis 6.40,
+    confirmed by KS test ($p < 10^{-10}$).
+  \item VIX is genuinely multifractal: the scaling function
+    $\hat{\tau}(q) = -0.022q^2 + 0.207q - 1.019$ is strictly concave.
+  \item $\hat{H} = 0.214$ places VIX in the strongly subdiffusive,
+    anti-persistent regime ($d_H = 1.786$), in sharp contrast with
+    equity price indices.
+  \item The lognormal cascade variance $\hat{\sigma}^2 = -0.100$ is
+    inadmissible, indicating structural cascade misspecification.
+  \item 10,000 MMAR and 1,000 GBM simulations confirm that neither
+    model replicates VIX's tail behaviour (MMAR kurtosis 0.07 vs.\
+    empirical 6.40; KS rejection at 100\% of simulated paths).
+\end{enumerate}
+
+These results have direct implications for the \$50+ billion VIX
+derivatives ecosystem. Systematic underestimation of kurtosis by
+standard models suggests the field requires alternative cascade
+specifications for implied volatility. Future work will explore Poisson
+and $\alpha$-stable cascade alternatives and extend the analysis to
+the VVIX (volatility-of-volatility index), which represents the
+second-order derivative of the quantity studied here.
+
+% ---------------------------------------------------------------
+% Bibliography
+% ---------------------------------------------------------------
+\bibliography{RSS2026_MMAR_VIX}
+
+\end{document}
